@@ -58,8 +58,16 @@ uv run pytest
 
 The web simulator provides an interactive 296x128 tri-color canvas, PBM image converter, wiring inspector, and live code viewer.
 
-### Option 1: Via Python / `uv` (Zero Node setup needed)
-Serves the pre-bundled `dist/` directory:
+### Option 1: Standalone Single-File HTML (Zero server, double-clickable)
+Build a 100% self-contained single HTML file with all CSS, JS, and graphics inlined:
+```bash
+uv run build-page
+# or with standard Python:
+python3 tools/build_page.py
+```
+This generates `simulator.html` (~315 KB). You can **double-click it or open directly via `file://` in any browser**—no web server and no npm required!
+
+### Option 2: Local HTTP Server via Python / `uv`
 ```bash
 uv run sim
 # or with standard Python:
@@ -69,7 +77,7 @@ python3 -m http.server -d dist 8080
 ```
 Then open `http://localhost:8080` in your browser.
 
-### Option 2: Via Node.js / Vite (Development mode)
+### Option 3: Via Node.js / Vite (Development mode with live reload)
 ```bash
 npm install
 npm run dev

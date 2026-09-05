@@ -24,19 +24,36 @@ DIST = ROOT / "dist"
 def main() -> None:
     port = int(os.environ.get("PORT", 8080))
 
+    serve_dir = DIST
+    default_page = "index.html"
+
     if not (DIST / "index.html").is_file():
-        print("dist/ not found, building simulator with npm...")
-        try:
-            subprocess.run(["npm", "run", "build"], cwd=str(ROOT), check=True)
-        except Exception as e:
-            sys.exit(
-                f"Error building simulator: {e}\n"
-                "Please ensure Node.js is installed, then run 'npm install && npm run build'."
-            )
+        if (ROOT / "simulator.html").is_file():
+            print("Using existing standalone simulator.html...")
+            serve_dir = ROOT
+            default_page = "simulator.html"
+        else:
+            print("Simulator not yet built, building single-file simulator...")
+            try:
+                from tools.build_page import build_dist_if_needed, bundle_single_file
+                build_dist_if_needed()
+                bundle_single_file(ROOT / "simulator.html")
+                serve_dir = ROOT
+                default_page = "simulator.html"
+            except Exception as e:
+                sys.exit(
+                    f"Error building simulator: {e}\n"
+                    "Please ensure Node.js is installed once to build, or run 'uv run build-page'."
+                )
 
     class SimulatorHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=str(DIST), **kwargs)
+            super().__init__(*args, directory=str(serve_dir), **kwargs)
+
+        def do_GET(self) -> None:
+            if self.path in ("/", "/index.html") and default_page != "index.html":
+                self.path = f"/{default_page}"
+            return super().do_GET()
 
         def log_message(self, format: str, *args) -> None:
             sys.stderr.write(f"[simulator] {format % args}\n")
