@@ -1,6 +1,6 @@
+import path from 'path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
@@ -8,8 +8,10 @@ export default defineConfig(() => {
     base: './',
     plugins: [react(), tailwindcss()],
     resolve: {
+      extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
       alias: {
         '@': path.resolve(__dirname, '.'),
+        '@web': path.resolve(__dirname, 'web'),
       },
     },
     server: {

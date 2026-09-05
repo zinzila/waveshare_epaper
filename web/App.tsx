@@ -15,12 +15,12 @@ import {
   Download,
   Layers,
 } from 'lucide-react';
-import { Color, Orientation, DrawCommand } from './types';
-import { DisplayCanvas } from './components/DisplayCanvas';
-import { CodeViewer } from './components/CodeViewer';
-import { PbmConverter } from './components/PbmConverter';
-import { HardwareInspector } from './components/HardwareInspector';
-import { TestRunnerView } from './components/TestRunnerView';
+import { Color, Orientation, DrawCommand } from './types.ts';
+import { DisplayCanvas } from './components/DisplayCanvas.tsx';
+import { CodeViewer } from './components/CodeViewer.tsx';
+import { PbmConverter } from './components/PbmConverter.tsx';
+import { HardwareInspector } from './components/HardwareInspector.tsx';
+import { TestRunnerView } from './components/TestRunnerView.tsx';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'simulator' | 'code' | 'converter' | 'hardware' | 'tests'>('simulator');

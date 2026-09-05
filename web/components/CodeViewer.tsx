@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Copy, Check, Download, FileCode, Folder, BookOpen, Terminal } from 'lucide-react';
-import { PYTHON_FILES } from '../pythonSources';
-import { PythonFile } from '../types';
+import { PYTHON_FILES } from '../pythonSources.ts';
+import { PythonFile } from '../types.ts';
 
 export const CodeViewer: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<PythonFile>(PYTHON_FILES[0]);
