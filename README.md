@@ -28,7 +28,6 @@ A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B
 │   └── test_deploy.py
 ├── tools/
 │   ├── deploy.py       # `uv run deploy` -> `mpremote fs cp` ...
-│   ├── sim.py          # `uv run sim` -> local preview server for web simulator
 │   └── mkimage.py      # image converter (PNG/JPEG -> 1-bit PBM P4 layers)
 ├── pyproject.toml
 ├── .python-version
@@ -45,7 +44,6 @@ The project is configured for [uv](https://docs.astral.sh/uv/) so the host machi
 uv sync --extra dev          # one-time: creates .venv with mpremote, ruff, mypy, pytest
 uv run deploy                # deploy src/ (recursively), examples/main.py, and lib/ to Pico
 uv run deploy -- --no-reset  # deploy without resetting board
-uv run sim                   # launch local web panel simulator
 uv run ruff check src tools tests examples
 uv run ruff format src tools tests examples
 uv run mypy src tools
@@ -67,60 +65,6 @@ python3 tools/build_page.py
 ```
 This generates `simulator.html` (~315 KB). You can **double-click it or open directly via `file://` in any browser**—no web server and no npm required!
 
-### Option 2: Local HTTP Server via Python / `uv`
-```bash
-uv run sim
-# or with standard Python:
-python3 tools/sim.py
-# or using Python's built-in HTTP server:
-python3 -m http.server -d dist 8080
-```
-Then open `http://localhost:8080` in your browser.
-
-### Option 3: Via Node.js / Vite (Development mode with live reload)
-```bash
-npm install
-npm run dev
-```
-Then open `http://localhost:3000` in your browser.
-
-> **Why opening `index.html` directly fails with an empty page:**  
-> Root `index.html` is the Vite dev template pointing to `/web/main.tsx` (TypeScript + React). Modern web browsers cannot execute raw TypeScript/JSX files directly, and opening via `file:///` causes module import errors. Always run either `python3 tools/sim.py` (which serves the compiled `dist/`) or `npm run dev`.
-
----
-
-## Publishing the Simulator to GitHub Pages
-
-Because the web simulator is 100% client-side (no backend server or database), it can be hosted directly on GitHub Pages for free. `vite.config.ts` uses `base: './'`, so assets resolve correctly under any repository subpath.
-
-### Option A: Automatic Deployment via GitHub Actions (Recommended)
-
-A workflow file is already included at `.github/workflows/deploy-pages.yml`.
-
-1. Push your repository to GitHub (default branch: `main`).
-2. Go to **Settings** → **Pages** in your GitHub repository.
-3. Under **Build and deployment** → **Source**, select **GitHub Actions**.
-4. Every push to `main` will automatically build the web assets and deploy the live simulator to `https://<your-username>.github.io/<your-repo>/`.
-
-### Option B: Zero-Build Deployment via `/docs`
-
-If you don't want CI/CD builds on GitHub, you can publish the self-contained single-file HTML directly:
-
-1. Generate `docs/index.html`:
-   ```bash
-   uv run build-page -o docs/index.html
-   # or:
-   python3 tools/build_page.py -o docs/index.html
-   ```
-2. Commit and push the `docs/` folder:
-   ```bash
-   git add docs/index.html
-   git commit -m "docs: add standalone simulator for GitHub Pages"
-   git push origin main
-   ```
-3. Go to **Settings** → **Pages** in your GitHub repository.
-4. Under **Build and deployment** → **Source**, select **Deploy from a branch**.
-5. Choose branch **`main`** and folder **`/docs`**, then click **Save**.
 
 ### MicroPython-Aware Tooling
 

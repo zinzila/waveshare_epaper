@@ -52,8 +52,7 @@ const TEST_CASES: TestCase[] = [
   { module: 'test_deploy.py', name: 'test_host_dir_to_device', specSection: 'Deploy Tool', description: 'Computes target device directories for automatic creation' },
   { module: 'test_deploy.py', name: 'test_device_path_refuses_src_root', specSection: 'Deploy Tool', description: 'Prevents deploying src root directory as a file' },
 
-  // test_sim.py & test_build_page.py
-  { module: 'test_sim.py', name: 'test_paths', specSection: 'Sim Tool', description: 'Resolves project root and dist directories correctly' },
+  // test_build_page.py
   { module: 'test_build_page.py', name: 'test_bundle_single_file', specSection: 'Build Page', description: 'Inlines CSS and JS into single-file self-contained simulator.html' },
 ];
 
@@ -65,7 +64,7 @@ export const TestRunnerView: React.FC = () => {
         <div>
           <h2 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Host Unit Test Suite (35 / 35 Passing)</span>
+            <span>Host Unit Test Suite (34 / 34 Passing)</span>
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">
             100% automated test coverage running against pure-Python <code className="text-emerald-400 font-mono">framebuf</code> and <code className="text-emerald-400 font-mono">machine</code> stubs
