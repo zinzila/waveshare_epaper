@@ -18,6 +18,7 @@ dev = [
 
 [project.scripts]
 deploy = "tools.deploy:main"
+sim = "tools.sim:main"
 
 [tool.ruff]
 line-length = 100

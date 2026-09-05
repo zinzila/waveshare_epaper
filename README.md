@@ -28,6 +28,7 @@ A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B
 │   └── test_deploy.py
 ├── tools/
 │   ├── deploy.py       # `uv run deploy` -> `mpremote fs cp` ...
+│   ├── sim.py          # `uv run sim` -> local preview server for web simulator
 │   └── mkimage.py      # image converter (PNG/JPEG -> 1-bit PBM P4 layers)
 ├── pyproject.toml
 ├── .python-version
@@ -44,11 +45,39 @@ The project is configured for [uv](https://docs.astral.sh/uv/) so the host machi
 uv sync --extra dev          # one-time: creates .venv with mpremote, ruff, mypy, pytest
 uv run deploy                # deploy src/ (recursively), examples/main.py, and lib/ to Pico
 uv run deploy -- --no-reset  # deploy without resetting board
+uv run sim                   # launch local web panel simulator
 uv run ruff check src tools tests examples
 uv run ruff format src tools tests examples
 uv run mypy src tools
 uv run pytest
 ```
+
+---
+
+## Running the Web Panel Simulator Locally
+
+The web simulator provides an interactive 296x128 tri-color canvas, PBM image converter, wiring inspector, and live code viewer.
+
+### Option 1: Via Python / `uv` (Zero Node setup needed)
+Serves the pre-bundled `dist/` directory:
+```bash
+uv run sim
+# or with standard Python:
+python3 tools/sim.py
+# or using Python's built-in HTTP server:
+python3 -m http.server -d dist 8080
+```
+Then open `http://localhost:8080` in your browser.
+
+### Option 2: Via Node.js / Vite (Development mode)
+```bash
+npm install
+npm run dev
+```
+Then open `http://localhost:3000` in your browser.
+
+> **Why opening `index.html` directly fails with an empty page:**  
+> Root `index.html` is the Vite dev template pointing to `/web/main.tsx` (TypeScript + React). Modern web browsers cannot execute raw TypeScript/JSX files directly, and opening via `file:///` causes module import errors. Always run either `python3 tools/sim.py` (which serves the compiled `dist/`) or `npm run dev`.
 
 ### MicroPython-Aware Tooling
 
