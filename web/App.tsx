@@ -319,7 +319,7 @@ export default function App() {
   };
 
   const generatePythonScript = () => {
-    let script = 'from app.display import Display, BLACK, RED, WHITE\n\n';
+    let script = 'from epdws.display import Display, BLACK, RED, WHITE\n\n';
     script += `with Display(orientation=${orientation}) as d:\n`;
     for (const cmd of commands) {
       script += `    ${cmd.description}\n`;

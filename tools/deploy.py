@@ -9,9 +9,9 @@ Usage (from the project root)::
     uv run deploy                # copy src/ (recursively) + lib/, then reset
     uv run deploy -- --no-reset  # copy without resetting
 
-The on-device layout mirrors the ``src/`` directory exactly, so
-``src/app/blink.py`` is deployed as ``/app/blink.py`` and
-``src/main.py`` is deployed as ``/main.py``.
+The on-device layout mirrors the ``src/`` directory, so
+``src/epdws/display.py`` is deployed as ``/epdws/display.py``, and
+``examples/main.py`` is deployed as ``/main.py``.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 LIB = ROOT / "lib"
+EXAMPLES = ROOT / "examples"
 
 
 def run(cmd: list[str]) -> None:
@@ -93,6 +94,10 @@ def deploy(reset: bool) -> None:
 
     safe_mkdir("/lib")
     deploy_source_tree()
+
+    example_main = EXAMPLES / "main.py"
+    if example_main.is_file():
+        run(["mpremote", "fs", "cp", str(example_main), ":/main.py"])
 
     if LIB.is_dir():
         run(["mpremote", "fs", "cp", "-r", str(LIB), ":/lib/"])

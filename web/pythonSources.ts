@@ -2,7 +2,7 @@ import { PythonFile } from './types';
 
 export const PYTHON_FILES: PythonFile[] = [
   {
-    path: 'src/app/display.py',
+    path: 'src/epdws/display.py',
     name: 'display.py',
     category: 'core',
     description: 'Public Display class, refresh throttle (180s), and exception hierarchy.',
@@ -16,8 +16,8 @@ except ImportError:
 import time
 
 # Re-export constants from canvas
-from app.canvas import Canvas, WHITE, BLACK, RED, LANDSCAPE, PORTRAIT
-from app.epd import Epd
+from epdws.canvas import Canvas, WHITE, BLACK, RED, LANDSCAPE, PORTRAIT
+from epdws.epd import Epd
 
 
 class DisplayError(Exception):
@@ -129,7 +129,7 @@ class Display:
 `
   },
   {
-    path: 'src/app/canvas.py',
+    path: 'src/epdws/canvas.py',
     name: 'canvas.py',
     category: 'core',
     description: 'Pure two-layer framebuf drawing, complementary rule, and landscape transpose.',
@@ -308,7 +308,7 @@ class Canvas:
                     self._fb_red.fill_rect(px, py, scale, scale, r_bit)
 
     def image(self, src, x, y, color, invert=False, transparent=False, width=None, height=None):
-        from app.image import draw_image
+        from epdws.image import draw_image
         draw_image(self, src, x, y, color, invert=invert, transparent=transparent, width=width, height=height)
 
     def get_panel_buffers(self):
@@ -321,7 +321,7 @@ class Canvas:
 `
   },
   {
-    path: 'src/app/epd.py',
+    path: 'src/epdws/epd.py',
     name: 'epd.py',
     category: 'core',
     description: 'Hardware driver for GDEW029Z10: SPI transactions, active-low BUSY, power sequence.',
@@ -390,7 +390,7 @@ class Epd:
         time.sleep_ms(150)
 
     def wait_busy(self, timeout_ms=30_000):
-        from app.display import PanelTimeout
+        from epdws.display import PanelTimeout
 
         deadline = time.ticks_add(time.ticks_ms(), timeout_ms)
         self._command(0x71)  # GET_STATUS
@@ -438,17 +438,17 @@ class Epd:
 `
   },
   {
-    path: 'src/app/image.py',
+    path: 'src/epdws/image.py',
     name: 'image.py',
     category: 'core',
     description: 'PBM P4 binary image parser, non-multiple-of-8 stride handling, and transparent blitting.',
     content: `"""1-bit image decoding (PBM P4 and raw buffers) and canvas drawing."""
 import framebuf
-from app.canvas import BLACK, RED, WHITE, _BLACK_BIT, _RED_BIT
+from epdws.canvas import BLACK, RED, WHITE, _BLACK_BIT, _RED_BIT
 
 
 def _read_pbm_header(stream):
-    from app.display import ImageError
+    from epdws.display import ImageError
 
     tokens = []
     current = bytearray()
@@ -494,7 +494,7 @@ def _read_pbm_header(stream):
 
 
 def draw_image(canvas, src, x, y, color, invert=False, transparent=False, width=None, height=None):
-    from app.display import ImageError
+    from epdws.display import ImageError
 
     close_stream = False
     if isinstance(src, str):
@@ -563,7 +563,7 @@ def draw_image(canvas, src, x, y, color, invert=False, transparent=False, width=
 `
   },
   {
-    path: 'src/app/led.py',
+    path: 'src/epdws/led.py',
     name: 'led.py',
     category: 'core',
     description: 'Activity LED indicator for Raspberry Pi Pico and Pico W.',
@@ -600,16 +600,16 @@ def blink(times=1, duration_ms=100):
 `
   },
   {
-    path: 'src/main.py',
+    path: 'examples/main.py',
     name: 'main.py',
-    category: 'core',
+    category: 'examples',
     description: 'Main demonstration script exercising all primitives with safe try/finally and LED blink.',
     content: `"""Demo and entry point for Waveshare Pico e-Paper 2.9 (B).
 
 Safely draws shapes, text, and colors, then puts the panel into deep sleep.
 """
-from app.display import Display, BLACK, RED, WHITE
-from app.led import blink
+from epdws.display import Display, BLACK, RED, WHITE
+from epdws.led import blink
 
 
 def main():
@@ -744,9 +744,9 @@ Usage (from the project root)::
     uv run deploy                # copy src/ (recursively) + lib/, then reset
     uv run deploy -- --no-reset  # copy without resetting
 
-The on-device layout mirrors the \`\`src/\`\` directory exactly, so
-\`\`src/app/blink.py\`\` is deployed as \`\`/app/blink.py\`\` and
-\`\`src/main.py\`\` is deployed as \`\`/main.py\`\`.
+The on-device layout mirrors the \`\`src/\`\` directory, so
+\`\`src/epdws/display.py\`\` is deployed as \`\`/epdws/display.py\`\`, and
+\`\`examples/main.py\`\` is deployed as \`\`/main.py\`\`.
 """
 
 from __future__ import annotations
@@ -904,16 +904,18 @@ A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B
 \`\`\`
 .
 ├── src/
-│   ├── main.py         # device entry point (deployed as /main.py)
-│   └── app/            # importable package with testable logic
-│       ├── __init__.py # package exports
+│   └── epdws/          # pure MicroPython graphics library
+│       ├── __init__.py # package exports (Display, colors, errors)
 │       ├── display.py  # high-level Display API, context manager & throttle
 │       ├── canvas.py   # dual-plane framebuf drawing & orientation transform
 │       ├── epd.py      # hardware SPI / GPIO driver for GDEW029Z10
 │       ├── image.py    # PBM P4 parser & raw 1-bit image blitter
 │       └── led.py      # onboard activity LED helper
+├── examples/
+│   └── main.py         # demo script (uploaded as /main.py on device)
+├── web/                # interactive web page & panel simulator (React + Tailwind)
 ├── lib/                # third-party MicroPython modules (deployed to /lib/)
-├── tests/              # host-side test suite for src/app/
+├── tests/              # host-side test suite for src/epdws/
 ├── tools/
 │   ├── deploy.py       # \`uv run deploy\` -> \`mpremote fs cp\` ...
 │   └── mkimage.py      # image converter (PNG/JPEG -> 1-bit PBM P4 layers)
@@ -926,10 +928,10 @@ A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B
 
 \`\`\`bash
 uv sync --extra dev          # one-time: creates .venv with mpremote, ruff, mypy, pytest
-uv run deploy                # deploy src/ (recursively) + lib/ to the Pico, then reset
+uv run deploy                # deploy src/ (recursively), examples/main.py, and lib/ to Pico
 uv run deploy -- --no-reset  # deploy without resetting board
-uv run ruff check src tools tests
-uv run ruff format src tools tests
+uv run ruff check src tools tests examples
+uv run ruff format src tools tests examples
 uv run mypy src tools
 uv run pytest
 \`\`\`

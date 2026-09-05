@@ -8,13 +8,13 @@ class TestDeploy(unittest.TestCase):
         sample_main = SRC / "main.py"
         self.assertEqual(device_path(sample_main), "/main.py")
 
-        sample_app_file = SRC / "app" / "canvas.py"
-        self.assertEqual(device_path(sample_app_file), "/app/canvas.py")
+        sample_epdws_file = SRC / "epdws" / "canvas.py"
+        self.assertEqual(device_path(sample_epdws_file), "/epdws/canvas.py")
 
     def test_host_dir_to_device(self):
         self.assertIsNone(host_dir_to_device(SRC))
-        self.assertEqual(host_dir_to_device(SRC / "app"), "/app")
-        self.assertEqual(host_dir_to_device(SRC / "app" / "sub"), "/app/sub")
+        self.assertEqual(host_dir_to_device(SRC / "epdws"), "/epdws")
+        self.assertEqual(host_dir_to_device(SRC / "epdws" / "sub"), "/epdws/sub")
 
     def test_device_path_refuses_src_root(self):
         with self.assertRaises(ValueError):

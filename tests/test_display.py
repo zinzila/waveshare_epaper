@@ -3,7 +3,7 @@ import unittest
 import time
 import tests.conftest
 
-from app.display import Display, RefreshTooSoon, BLACK, RED, WHITE
+from epdws.display import Display, RefreshTooSoon, BLACK, RED, WHITE
 from machine import Pin
 
 

@@ -12,7 +12,7 @@ export interface DrawCommand {
 export interface PythonFile {
   path: string;
   name: string;
-  category: 'core' | 'tools' | 'tests' | 'docs';
+  category: 'core' | 'examples' | 'tools' | 'tests' | 'docs';
   description: string;
   content: string;
 }

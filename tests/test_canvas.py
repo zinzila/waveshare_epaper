@@ -2,7 +2,7 @@
 import unittest
 import tests.conftest  # install fakes
 
-from app.canvas import (
+from epdws.canvas import (
     Canvas,
     WHITE,
     BLACK,

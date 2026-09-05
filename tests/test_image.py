@@ -3,8 +3,8 @@ import io
 import unittest
 import tests.conftest
 
-from app.canvas import Canvas, WHITE, BLACK, RED
-from app.display import ImageError
+from epdws.canvas import Canvas, WHITE, BLACK, RED
+from epdws.display import ImageError
 
 
 class TestImage(unittest.TestCase):

@@ -3,8 +3,8 @@ import unittest
 import time
 import tests.conftest
 
-from app.epd import Epd
-from app.display import PanelTimeout
+from epdws.epd import Epd
+from epdws.display import PanelTimeout
 from machine import Pin, SPI
 
 

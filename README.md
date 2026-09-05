@@ -7,22 +7,25 @@ A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B
 ```
 .
 ├── src/
-│   ├── main.py         # device entry point (deployed as /main.py)
-│   └── app/            # importable package with testable logic
-│       ├── __init__.py # package exports
+│   └── epdws/          # pure MicroPython graphics library
+│       ├── __init__.py # package exports (Display, colors, errors)
 │       ├── display.py  # high-level Display API, context manager & throttle
 │       ├── canvas.py   # dual-plane framebuf drawing & orientation transform
 │       ├── epd.py      # hardware SPI / GPIO driver for GDEW029Z10
 │       ├── image.py    # PBM P4 parser & raw 1-bit image blitter
 │       └── led.py      # onboard activity LED helper
+├── examples/
+│   └── main.py         # demo script (uploaded as /main.py on device)
+├── web/                # interactive web page & panel simulator (React + Tailwind)
 ├── lib/                # third-party MicroPython modules (deployed to /lib/)
-├── tests/              # host-side test suite for src/app/
+├── tests/              # host-side test suite for src/epdws/
 │   ├── conftest.py     # MicroPython fakes setup for CPython
 │   ├── fakes/          # emulated framebuf, machine.Pin, machine.SPI
 │   ├── test_canvas.py
 │   ├── test_image.py
 │   ├── test_epd.py
-│   └── test_display.py
+│   ├── test_display.py
+│   └── test_deploy.py
 ├── tools/
 │   ├── deploy.py       # `uv run deploy` -> `mpremote fs cp` ...
 │   └── mkimage.py      # image converter (PNG/JPEG -> 1-bit PBM P4 layers)
@@ -39,18 +42,18 @@ The project is configured for [uv](https://docs.astral.sh/uv/) so the host machi
 
 ```bash
 uv sync --extra dev          # one-time: creates .venv with mpremote, ruff, mypy, pytest
-uv run deploy                # deploy src/ (recursively) + lib/ to the Pico, then reset
+uv run deploy                # deploy src/ (recursively), examples/main.py, and lib/ to Pico
 uv run deploy -- --no-reset  # deploy without resetting board
-uv run ruff check src tools tests
-uv run ruff format src tools tests
+uv run ruff check src tools tests examples
+uv run ruff format src tools tests examples
 uv run mypy src tools
 uv run pytest
 ```
 
 ### MicroPython-Aware Tooling
 
-- `micropython-rp2-stubs` (pinned to firmware version) gives mypy / Pylance the type definitions for `machine.Pin`, `time.sleep_ms`, etc., so `src/app/` can be typechecked on the host.
-- **Ruff** is configured to lint `src/`, `tools/`, and `tests/` with a sensible default rule set (`E`, `W`, `F`, `I`, `UP`, `B`, `SIM`).
+- `micropython-rp2-stubs` (pinned to firmware version) gives mypy / Pylance the type definitions for `machine.Pin`, `time.sleep_ms`, etc., so `src/epdws/` can be typechecked on the host.
+- **Ruff** is configured to lint `src/`, `tools/`, `examples/`, and `tests/` with a sensible default rule set (`E`, `W`, `F`, `I`, `UP`, `B`, `SIM`).
 - **pytest** imports `src/` on `sys.path` via `tests/conftest.py` and runs tests against the package's pure-Python logic. `machine.Pin` is faked at the import boundary and time helpers are mocked for instantaneous tests.
 
 `uv` only manages the **host** Python environment. MicroPython itself runs on the device and is flashed separately as a `.uf2` file.
@@ -69,9 +72,10 @@ uv run deploy
 
 What `deploy.py` does:
 1. Verifies `mpremote` is installed.
-2. Creates any needed directories on the device (e.g. `/app`, `/lib`).
-3. Recursively uploads all files from `src/` to root (`/`) and `lib/` to `/lib/`.
-4. Issues a software reset (`mpremote reset`) so `main.py` runs immediately.
+2. Creates any needed directories on the device (e.g. `/epdws`, `/lib`).
+3. Recursively uploads all files from `src/` to root (`/`) and `examples/main.py` to `/main.py`.
+4. Uploads any third-party libraries from `lib/` to `/lib/`.
+5. Issues a software reset (`mpremote reset`) so `main.py` runs immediately.
 
 To deploy without resetting:
 ```bash
@@ -83,6 +87,7 @@ uv run deploy -- --no-reset
 ```bash
 pip install mpremote
 mpremote connect /dev/ttyACM0 fs cp -r src/* :
+mpremote connect /dev/ttyACM0 fs cp examples/main.py :main.py
 mpremote connect /dev/ttyACM0 reset
 ```
 
@@ -92,7 +97,7 @@ mpremote connect /dev/ttyACM0 reset
 
 1. Flash MicroPython firmware to the board (UF2 file from https://micropython.org/download/RPI_PICO/ or https://micropython.org/download/RPI_PICO_W/).
 2. Mount the Pico as a USB mass-storage drive.
-3. Copy `src/*` to the root of that drive.
+3. Copy `src/epdws` directory and `examples/main.py` (as `main.py`) to the root of that drive.
 4. Safely eject and reset the board; MicroPython runs `boot.py` then `main.py`.
 
 ---
@@ -100,7 +105,7 @@ mpremote connect /dev/ttyACM0 reset
 ## Quick Start (MicroPython Code)
 
 ```python
-from app.display import Display, BLACK, RED, WHITE
+from epdws.display import Display, BLACK, RED, WHITE
 
 with Display() as d:
     d.clear()
@@ -137,7 +142,7 @@ uv run pytest
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
 
-All 30 unit tests pass on host CPython without requiring connected hardware.
+All 33 unit tests pass on host CPython without requiring connected hardware.
 
 ---
 
