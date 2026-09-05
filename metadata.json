@@ -1,0 +1,6 @@
+{
+  "name": "Pico e-Paper 2.9 (B) Library",
+  "description": "Python and MicroPython graphics library for the Waveshare Pico e-Paper 2.9 (B) tri-color display with simulator and tools",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
