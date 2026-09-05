@@ -46,6 +46,11 @@ const TEST_CASES: TestCase[] = [
   { module: 'test_display.py', name: 'test_ticks_wraparound_handles_throttle', specSection: '§7.2', description: 'ticks_ms() wraparound at 2^30 does not defeat throttle' },
   { module: 'test_display.py', name: 'test_context_manager_calls_sleep_on_normal_exit', specSection: '§2.2', description: 'with Display(): ensures sleep() is invoked' },
   { module: 'test_display.py', name: 'test_context_manager_calls_sleep_on_exception', specSection: '§2.2', description: 'with Display(): ensures sleep() even on crash' },
+
+  // test_deploy.py
+  { module: 'test_deploy.py', name: 'test_device_path_translation', specSection: 'Deploy Tool', description: 'Translates src/ paths into on-device root / paths' },
+  { module: 'test_deploy.py', name: 'test_host_dir_to_device', specSection: 'Deploy Tool', description: 'Computes target device directories for automatic creation' },
+  { module: 'test_deploy.py', name: 'test_device_path_refuses_src_root', specSection: 'Deploy Tool', description: 'Prevents deploying src root directory as a file' },
 ];
 
 export const TestRunnerView: React.FC = () => {
@@ -56,7 +61,7 @@ export const TestRunnerView: React.FC = () => {
         <div>
           <h2 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Host Unit Test Suite (30 / 30 Passing)</span>
+            <span>Host Unit Test Suite (33 / 33 Passing)</span>
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">
             100% automated test coverage running against pure-Python <code className="text-emerald-400 font-mono">framebuf</code> and <code className="text-emerald-400 font-mono">machine</code> stubs
@@ -66,7 +71,7 @@ export const TestRunnerView: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950/80 border border-emerald-700/60 text-emerald-300">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Ran 30 tests in 0.361s — ALL PASSING</span>
+            <span>Ran 33 tests in 0.377s — ALL PASSING</span>
           </span>
         </div>
       </div>

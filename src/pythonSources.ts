@@ -729,13 +729,211 @@ def convert_image(input_path, output_dir, threshold=128, resize_oversized=False)
 `
   },
   {
+    path: 'tools/deploy.py',
+    name: 'deploy.py',
+    category: 'tools',
+    description: 'Host deployment tool: uploads src/ and lib/ to Raspberry Pi Pico using mpremote, then resets.',
+    content: `"""Deploy the project to a connected Raspberry Pi Pico.
+
+Install host deps with uv::
+
+    uv sync --extra dev
+
+Usage (from the project root)::
+
+    uv run deploy                # copy src/ (recursively) + lib/, then reset
+    uv run deploy -- --no-reset  # copy without resetting
+
+The on-device layout mirrors the \`\`src/\`\` directory exactly, so
+\`\`src/app/blink.py\`\` is deployed as \`\`/app/blink.py\`\` and
+\`\`src/main.py\`\` is deployed as \`\`/main.py\`\`.
+"""
+
+from __future__ import annotations
+
+import argparse
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SRC = ROOT / "src"
+LIB = ROOT / "lib"
+
+
+def run(cmd: list[str]) -> None:
+    """Run a command, fail loudly if it returns non-zero."""
+    print("$", " ".join(cmd))
+    subprocess.run(cmd, check=True)
+
+
+def device_path(local: Path) -> str:
+    """Translate a path under \`\`src/\`\` into the device path."""
+    rel = local.relative_to(SRC)
+    if rel == Path("."):
+        # local is SRC itself; no valid device path.
+        msg = f"refusing to deploy {local}: it is the src/ root, not a file"
+        raise ValueError(msg)
+    return "/" + rel.as_posix()
+
+
+def host_dir_to_device(host_dir: Path) -> str | None:
+    """Return the device-side directory for \`\`host_dir\`\` (None if it's SRC)."""
+    rel = host_dir.relative_to(SRC)
+    if rel == Path("."):
+        return None
+    return "/" + rel.as_posix()
+
+
+def safe_mkdir(device_dir: str) -> None:
+    """Create \`\`device_dir\`\` on the device; ignore 'already exists' errors."""
+    cmd = ["mpremote", "fs", "mkdir", f":{device_dir}"]
+    print("$", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode == 0:
+        return
+    if "File exists" in result.stderr:
+        return
+    if result.stderr:
+        sys.stderr.write(result.stderr)
+    raise subprocess.CalledProcessError(result.returncode, cmd)
+
+
+def deploy_source_tree() -> None:
+    if not SRC.is_dir():
+        return
+
+    dirs: set[str] = set()
+    for path in sorted(SRC.rglob("*.py")):
+        d = host_dir_to_device(path.parent)
+        if d is not None:
+            dirs.add(d)
+
+    for d in sorted(dirs, key=len):
+        safe_mkdir(d)
+
+    for path in sorted(SRC.rglob("*.py")):
+        run(["mpremote", "fs", "cp", str(path), f":{device_path(path)}"])
+
+
+def deploy(reset: bool) -> None:
+    if shutil.which("mpremote") is None:
+        sys.exit(
+            "mpremote not found on PATH. Run \`uv sync\` to install it, or \`pip install mpremote\`."
+        )
+
+    safe_mkdir("/lib")
+    deploy_source_tree()
+
+    if LIB.is_dir():
+        run(["mpremote", "fs", "cp", "-r", str(LIB), ":/lib/"])
+
+    if reset:
+        run(["mpremote", "reset"])
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--no-reset", action="store_true", help="skip reset after deploy")
+    args = parser.parse_args()
+    deploy(reset=not args.no_reset)
+
+
+if __name__ == "__main__":
+    main()
+`
+  },
+  {
+    path: 'pyproject.toml',
+    name: 'pyproject.toml',
+    category: 'docs',
+    description: 'Host tooling configuration for uv, ruff, mypy, pytest, and deploy script.',
+    content: `[project]
+name = "pico-epaper-2in9b"
+version = "0.1.0"
+description = "Minimal graphics library for Waveshare Pico e-Paper 2.9 (B) on Raspberry Pi Pico W"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "mpremote>=0.5.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "pytest>=8.0.0",
+    "micropython-rp2-stubs",
+    "pillow>=10.0.0",
+]
+
+[project.scripts]
+deploy = "tools.deploy:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+`
+  },
+  {
     path: 'README.md',
     name: 'README.md',
     category: 'docs',
-    description: 'Documentation: installation, wiring table, quick start, and testing instructions.',
-    content: `# Waveshare Pico e-Paper 2.9 (B) MicroPython Library
+    description: 'Documentation: installation, uv workflow, mpremote deployment, wiring, and tests.',
+    content: `# MicroPython Graphics Library for Waveshare Pico e-Paper 2.9 (B)
 
-A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B (GDEW029Z10) 296x128 tri-color (Black / White / Red) display on Raspberry Pi Pico / Pico W.
+A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B (GDEW029Z10) 296x128 tri-color (Black / White / Red) display on the Raspberry Pi Pico / Pico W / Pico 2.
+
+## Layout
+
+\`\`\`
+.
+├── src/
+│   ├── main.py         # device entry point (deployed as /main.py)
+│   └── app/            # importable package with testable logic
+│       ├── __init__.py # package exports
+│       ├── display.py  # high-level Display API, context manager & throttle
+│       ├── canvas.py   # dual-plane framebuf drawing & orientation transform
+│       ├── epd.py      # hardware SPI / GPIO driver for GDEW029Z10
+│       ├── image.py    # PBM P4 parser & raw 1-bit image blitter
+│       └── led.py      # onboard activity LED helper
+├── lib/                # third-party MicroPython modules (deployed to /lib/)
+├── tests/              # host-side test suite for src/app/
+├── tools/
+│   ├── deploy.py       # \`uv run deploy\` -> \`mpremote fs cp\` ...
+│   └── mkimage.py      # image converter (PNG/JPEG -> 1-bit PBM P4 layers)
+├── pyproject.toml
+├── .python-version
+└── README.md
+\`\`\`
+
+## Host-side Tooling (\`uv\`)
+
+\`\`\`bash
+uv sync --extra dev          # one-time: creates .venv with mpremote, ruff, mypy, pytest
+uv run deploy                # deploy src/ (recursively) + lib/ to the Pico, then reset
+uv run deploy -- --no-reset  # deploy without resetting board
+uv run ruff check src tools tests
+uv run ruff format src tools tests
+uv run mypy src tools
+uv run pytest
+\`\`\`
 `
   }
 ];
+

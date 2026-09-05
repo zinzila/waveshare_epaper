@@ -407,7 +407,7 @@ export default function App() {
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Tests (30)</span>
+              <span>Tests (33)</span>
             </button>
           </nav>
         </div>
@@ -661,7 +661,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="bg-zinc-900 border-t border-zinc-800 py-4 mt-12 text-center text-xs text-zinc-500">
-        <p>Waveshare Pico e-Paper 2.9 (B) Library • MicroPython on Raspberry Pi Pico W • 30/30 Tests Passing</p>
+        <p>Waveshare Pico e-Paper 2.9 (B) Library • MicroPython on Raspberry Pi Pico W • 33/33 Tests Passing</p>
       </footer>
     </div>
   );

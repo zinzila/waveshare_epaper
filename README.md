@@ -1,18 +1,103 @@
 # MicroPython Graphics Library for Waveshare Pico e-Paper 2.9 (B)
 
-A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B (GDEW029Z10) 296x128 tri-color (Black / White / Red) display on the Raspberry Pi Pico / Pico W.
+A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B (GDEW029Z10) 296x128 tri-color (Black / White / Red) display on the Raspberry Pi Pico / Pico W / Pico 2.
 
-## Highlights
-- **Single Import & Simple Object Model**: Think in pixels, colors, and shapes. No SPI registers, no bit twiddling, no polarity traps.
-- **Two-Layer Complementary Writes**: Clean overdrawing (`RED` over `BLACK` yields red, `WHITE` is an eraser) with zero color ambiguity.
-- **Orientation Control**: Default `LANDSCAPE` (296x128) with transparent 90° rotation at upload, or panel-native `PORTRAIT` (128x296).
-- **Safety by Construction**: Panel is only energized inside `show()` and powered down to deep sleep on normal return or exception (`__exit__`). Refresh interval throttle (180s) protects pigment from over-refresh.
-- **PBM P4 Image Blitting**: Fast 1-bit streaming image support with optional inversion and alpha compositing.
-- **100% Host Testable**: Comprehensive unit tests runnable on CPython with `framebuf` and `machine` fakes.
+## Layout
+
+```
+.
+├── src/
+│   ├── main.py         # device entry point (deployed as /main.py)
+│   └── app/            # importable package with testable logic
+│       ├── __init__.py # package exports
+│       ├── display.py  # high-level Display API, context manager & throttle
+│       ├── canvas.py   # dual-plane framebuf drawing & orientation transform
+│       ├── epd.py      # hardware SPI / GPIO driver for GDEW029Z10
+│       ├── image.py    # PBM P4 parser & raw 1-bit image blitter
+│       └── led.py      # onboard activity LED helper
+├── lib/                # third-party MicroPython modules (deployed to /lib/)
+├── tests/              # host-side test suite for src/app/
+│   ├── conftest.py     # MicroPython fakes setup for CPython
+│   ├── fakes/          # emulated framebuf, machine.Pin, machine.SPI
+│   ├── test_canvas.py
+│   ├── test_image.py
+│   ├── test_epd.py
+│   └── test_display.py
+├── tools/
+│   ├── deploy.py       # `uv run deploy` -> `mpremote fs cp` ...
+│   └── mkimage.py      # image converter (PNG/JPEG -> 1-bit PBM P4 layers)
+├── pyproject.toml
+├── .python-version
+└── README.md
+```
 
 ---
 
-## Quick Start
+## Host-side Tooling (`uv`)
+
+The project is configured for [uv](https://docs.astral.sh/uv/) so the host machine can lint, typecheck, run deploy scripts, and execute host-side tests reproducibly:
+
+```bash
+uv sync --extra dev          # one-time: creates .venv with mpremote, ruff, mypy, pytest
+uv run deploy                # deploy src/ (recursively) + lib/ to the Pico, then reset
+uv run deploy -- --no-reset  # deploy without resetting board
+uv run ruff check src tools tests
+uv run ruff format src tools tests
+uv run mypy src tools
+uv run pytest
+```
+
+### MicroPython-Aware Tooling
+
+- `micropython-rp2-stubs` (pinned to firmware version) gives mypy / Pylance the type definitions for `machine.Pin`, `time.sleep_ms`, etc., so `src/app/` can be typechecked on the host.
+- **Ruff** is configured to lint `src/`, `tools/`, and `tests/` with a sensible default rule set (`E`, `W`, `F`, `I`, `UP`, `B`, `SIM`).
+- **pytest** imports `src/` on `sys.path` via `tests/conftest.py` and runs tests against the package's pure-Python logic. `machine.Pin` is faked at the import boundary and time helpers are mocked for instantaneous tests.
+
+`uv` only manages the **host** Python environment. MicroPython itself runs on the device and is flashed separately as a `.uf2` file.
+
+---
+
+## Deploying to the Pico
+
+### Option 1: Using `deploy.py` with `uv` (Recommended)
+
+Connect your Pico to your computer via USB:
+
+```bash
+uv run deploy
+```
+
+What `deploy.py` does:
+1. Verifies `mpremote` is installed.
+2. Creates any needed directories on the device (e.g. `/app`, `/lib`).
+3. Recursively uploads all files from `src/` to root (`/`) and `lib/` to `/lib/`.
+4. Issues a software reset (`mpremote reset`) so `main.py` runs immediately.
+
+To deploy without resetting:
+```bash
+uv run deploy -- --no-reset
+```
+
+### Option 2: Using `mpremote` directly
+
+```bash
+pip install mpremote
+mpremote connect /dev/ttyACM0 fs cp -r src/* :
+mpremote connect /dev/ttyACM0 reset
+```
+
+*(On Windows replace `/dev/ttyACM0` with `COMx`, on macOS use `/dev/cu.usbmodem*`).*
+
+### Option 3: USB Mass Storage Drag-and-Drop
+
+1. Flash MicroPython firmware to the board (UF2 file from https://micropython.org/download/RPI_PICO/ or https://micropython.org/download/RPI_PICO_W/).
+2. Mount the Pico as a USB mass-storage drive.
+3. Copy `src/*` to the root of that drive.
+4. Safely eject and reset the board; MicroPython runs `boot.py` then `main.py`.
+
+---
+
+## Quick Start (MicroPython Code)
 
 ```python
 from app.display import Display, BLACK, RED, WHITE
@@ -31,67 +116,40 @@ with Display() as d:
 
 ---
 
-## Directory Structure
-
-```
-src/
-├── main.py            # Device demo script
-└── app/
-    ├── __init__.py    # Exports Display, constants, exceptions
-    ├── display.py     # High-level Display class & lifecycle
-    ├── canvas.py      # Dual-plane framebuf drawing & orientation transform
-    ├── epd.py         # Hardware SPI / GPIO driver for GDEW029Z10
-    ├── image.py       # PBM P4 parser & raw 1-bit image blitter
-    └── led.py         # Onboard activity LED helper
-
-tools/
-└── mkimage.py         # Host tool to convert PNG/JPEG to PBM P4 layers
-
-tests/
-├── conftest.py        # MicroPython fakes setup for CPython
-├── fakes/
-│   ├── framebuf.py    # Emulates MicroPython framebuf module
-│   └── machine.py     # Emulates Pin and SPI with trace logs
-├── test_canvas.py     # Drawing primitives & geometry transform tests
-├── test_image.py      # Image parser, stride, polarity, & blit tests
-├── test_epd.py        # Hardware command sequence & BUSY polling tests
-└── test_display.py    # Throttle, context manager, and lifecycle tests
-```
-
----
-
 ## Hardware Pinout (Pico Header Default)
 
-| Signal | GPIO Pin | Function |
-|---|---|---|
-| SCK | GP10 | SPI1 Clock |
-| MOSI | GP11 | SPI1 MOSI |
-| CS | GP9 | Chip Select (Active-Low) |
-| DC | GP8 | Data / Command (0=cmd, 1=data) |
-| RST | GP12 | Hardware Reset |
-| BUSY | GP13 | Status Pin (Active-Low, Pull-Up) |
+| Signal | GPIO Pin | Function | Direction / Logic |
+|---|---|---|---|
+| **SCK** | GP10 | SPI1 Clock | Output |
+| **MOSI** | GP11 | SPI1 TX Data | Output |
+| **CS** | GP9 | Chip Select | Active-Low |
+| **DC** | GP8 | Data / Command | `0` = command, `1` = data |
+| **RST** | GP12 | Hardware Reset | Active-Low |
+| **BUSY** | GP13 | Panel Status | **Active-Low** (`0` = busy, `1` = idle, internal pull-up) |
 
 ---
 
 ## Running Unit Tests on Host
 
-Run the 30 unit test cases using Python 3:
-
 ```bash
+uv run pytest
+# or using built-in unittest:
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
 
+All 30 unit tests pass on host CPython without requiring connected hardware.
+
 ---
 
-## Image Conversion Tool
+## Image Conversion Tool (`mkimage.py`)
 
-Use `tools/mkimage.py` to prepare artwork:
+Use `tools/mkimage.py` to convert graphics into 1-bit PBM P4 layer pairs:
 
 ```bash
 python3 tools/mkimage.py my_logo.png --out img/ --threshold 128
 ```
 
-This generates:
+Generates:
 - `img/my_logo_black.pbm`
-- `img/my_logo_red.pbm` (if saturated reds are found)
-- Copy-paste MicroPython code snippet.
+- `img/my_logo_red.pbm` (if saturated red is detected)
+- Ready-to-use MicroPython blit code snippet.
