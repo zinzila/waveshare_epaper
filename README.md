@@ -87,6 +87,41 @@ Then open `http://localhost:3000` in your browser.
 > **Why opening `index.html` directly fails with an empty page:**  
 > Root `index.html` is the Vite dev template pointing to `/web/main.tsx` (TypeScript + React). Modern web browsers cannot execute raw TypeScript/JSX files directly, and opening via `file:///` causes module import errors. Always run either `python3 tools/sim.py` (which serves the compiled `dist/`) or `npm run dev`.
 
+---
+
+## Publishing the Simulator to GitHub Pages
+
+Because the web simulator is 100% client-side (no backend server or database), it can be hosted directly on GitHub Pages for free. `vite.config.ts` uses `base: './'`, so assets resolve correctly under any repository subpath.
+
+### Option A: Automatic Deployment via GitHub Actions (Recommended)
+
+A workflow file is already included at `.github/workflows/deploy-pages.yml`.
+
+1. Push your repository to GitHub (default branch: `main`).
+2. Go to **Settings** → **Pages** in your GitHub repository.
+3. Under **Build and deployment** → **Source**, select **GitHub Actions**.
+4. Every push to `main` will automatically build the web assets and deploy the live simulator to `https://<your-username>.github.io/<your-repo>/`.
+
+### Option B: Zero-Build Deployment via `/docs`
+
+If you don't want CI/CD builds on GitHub, you can publish the self-contained single-file HTML directly:
+
+1. Generate `docs/index.html`:
+   ```bash
+   uv run build-page -o docs/index.html
+   # or:
+   python3 tools/build_page.py -o docs/index.html
+   ```
+2. Commit and push the `docs/` folder:
+   ```bash
+   git add docs/index.html
+   git commit -m "docs: add standalone simulator for GitHub Pages"
+   git push origin main
+   ```
+3. Go to **Settings** → **Pages** in your GitHub repository.
+4. Under **Build and deployment** → **Source**, select **Deploy from a branch**.
+5. Choose branch **`main`** and folder **`/docs`**, then click **Save**.
+
 ### MicroPython-Aware Tooling
 
 - `micropython-rp2-stubs` (pinned to firmware version) gives mypy / Pylance the type definitions for `machine.Pin`, `time.sleep_ms`, etc., so `src/epdws/` can be typechecked on the host.
