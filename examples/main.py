@@ -2,16 +2,8 @@
 
 Safely draws shapes, text, and colors, then puts the panel into deep sleep.
 """
-import sys
-from pathlib import Path
-
-# Allow running from examples/ directory or project root on host
-SRC_PATH = str(Path(__file__).resolve().parent.parent / "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
-
-from epdws.display import Display, BLACK, RED, WHITE
-from epdws.led import blink
+from app.led import blink
+from epdws.display import BLACK, RED, Display
 
 
 def main():

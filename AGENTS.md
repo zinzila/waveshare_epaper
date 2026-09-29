@@ -17,6 +17,8 @@ Host-side lint, typecheck, and test commands are covered by the `host-tooling` s
 
 Deploying to the board is covered by the `deploy-to-pico` skill (`.agents/skills/deploy-to-pico/SKILL.md`) — use it for `uv run deploy`, manual `mpremote` commands, and serial-port troubleshooting.
 
+To verify what happens on the device after deploying (files, boot output, runtime state), use the `inspect-device` skill (`.agents/skills/inspect-device/SKILL.md`).
+
 ## Hardware Protocol
 
 Full hardware details — panel spec, pinout, BUSY polarity errata, and the register sequence — live in `.agents/references/RPi_Pico_W_epaper_display.md`; read it when working on the driver (`epdws/epd.py`) or anything SPI/GPIO-related.
