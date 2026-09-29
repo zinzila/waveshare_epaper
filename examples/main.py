@@ -2,8 +2,8 @@
 
 Safely draws shapes, text, and colors, then puts the panel into deep sleep.
 """
-from app.led import blink
 from epdws.display import BLACK, RED, Display
+from epdws.led import blink
 
 
 def main():
