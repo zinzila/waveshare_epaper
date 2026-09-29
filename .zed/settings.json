@@ -1,0 +1,13 @@
+{
+  "languages": {
+    "Python": {
+      "language_servers": ["ty", "!basedpyright"],
+      "format_on_save": "modifications_if_available",
+      "formatter": {
+        "language_server": {
+          "name": "ruff",
+        },
+      },
+    }
+  }
+}
