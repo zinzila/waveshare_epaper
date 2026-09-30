@@ -19,6 +19,37 @@ Deploying to the board is covered by the `deploy-to-pico` skill (`.agents/skills
 
 To verify what happens on the device after deploying (files, boot output, runtime state), use the `inspect-device` skill (`.agents/skills/inspect-device/SKILL.md`).
 
+### Device Reference Tests
+
+`examples/ref_test/<name>/main.py` holds **device reference tests**: minimal, single-purpose
+scripts that flash the panel with one known, simple pattern to verify the hardware end to end.
+They exist to isolate *where* a display fault lives — is it the drawing code, the SPI/BUSY
+transport, or the panel init sequence?
+
+Deploy one on demand; it overwrites `/main.py` and runs on boot:
+
+```bash
+uv run deploy --list-tools          # show available tests
+uv run deploy --tool all_black      # push examples/ref_test/all_black/main.py as /main.py
+uv run deploy --tool all_black --no-reset
+```
+
+Each test prints its plane ink counts and leading buffer bytes over serial, so you can confirm
+what *should* have been sent before judging what the panel actually shows.
+
+| Test | Pattern | Isolates |
+|---|---|---|
+| `all_black` | full-panel black flood | shared transport + black plane (`0x10`) |
+| `all_red` | full-panel red flood | red plane (`0x13`), uploaded on a separate SPI path |
+
+Run these before debugging a real image: if `all_black` is not uniformly black, the fault is in
+`epdws/epd.py` (SPI framing, BUSY polling, init sequence), not in `canvas.py`. Because black and
+red travel on different commands, the pair discriminates a shared fault from a plane-specific one.
+
+Keep these tests deliberately free of drawing features — no text, shapes, or images — so a failure
+points unambiguously at the transport. Add a new one as `examples/ref_test/<name>/main.py`; it is
+picked up by discovery automatically, with no registry to update.
+
 ## Hardware Protocol
 
 Full hardware details — panel spec, pinout, BUSY polarity errata, and the register sequence — live in `.agents/references/RPi_Pico_W_epaper_display.md`; read it when working on the driver (`epdws/epd.py`) or anything SPI/GPIO-related.

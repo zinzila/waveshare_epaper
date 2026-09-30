@@ -21,8 +21,26 @@ Deploy this project's MicroPython code to a Raspberry Pi Pico / Pico W / Pico 2 
 ```bash
 uv sync --extra dev          # one-time: creates .venv with mpremote, ruff, mypy, pytest
 uv run deploy                # deploy everything, then reset the board
-uv run deploy -- --no-reset  # deploy without resetting the board
+uv run deploy --no-reset     # deploy without resetting the board
 ```
+
+> Do **not** put a `--` separator before the flag (e.g. `uv run deploy -- --no-reset`).
+> This `uv` version (0.12.x) forwards the `--` through to the script, and argparse
+> rejects it. Pass flags directly: `uv run deploy --no-reset`.
+
+## Deploying a reference test
+
+Device reference tests live in `examples/ref_test/<name>/main.py`. Deploy one on
+demand and it becomes `/main.py`, so it runs on boot:
+
+```bash
+uv run deploy --list-tools     # show what's available
+uv run deploy --tool all_black # push examples/ref_test/all_black/main.py as /main.py
+uv run deploy --tool all_red
+```
+
+Without `--tool`, the default `examples/main.py` demo is deployed as `/main.py`.
+Add `--no-reset` to push without immediately refreshing the panel.
 
 ## Manual: `mpremote` directly
 

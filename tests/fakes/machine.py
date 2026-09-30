@@ -1,5 +1,11 @@
 """MicroPython machine fake for host CPython testing."""
 
+# Records every Pin/SPI construction as (kind, id) in creation order. Used to
+# pin the Epd construction order, which is load-bearing on real hardware:
+# SPI(1) on a freshly-reset RP2040 claims its default pin set (SCK=10,
+# MOSI=11, MISO=8) and GPIO8 is the DC pin.
+construction_order = []
+
 
 class Pin:
     IN = 0
@@ -19,6 +25,7 @@ class Pin:
             self._value = value
         self.history = []
         Pin.pins_by_id[pin_id] = self
+        construction_order.append(("Pin", pin_id))
 
     def value(self, val=None):
         if val is None:
@@ -50,6 +57,16 @@ class SPI:
         self.mosi = mosi
         self.miso = miso
         self.writes = []  # records all byte writes
+        construction_order.append(("SPI", spi_id))
+
+    def init(self, baudrate=4_000_000, polarity=0, phase=0, sck=None, mosi=None, miso=None):
+        # Vendor-style re-init path: SPI(1) then .init(...)
+        self.baudrate = baudrate
+        self.polarity = polarity
+        self.phase = phase
+        self.sck = sck
+        self.mosi = mosi
+        self.miso = miso
 
     def write(self, buf):
         # Store a copy of bytes written

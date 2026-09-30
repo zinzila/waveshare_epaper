@@ -6,12 +6,17 @@ Install host deps with uv::
 
 Usage (from the project root)::
 
-    uv run deploy                # copy src/ (recursively) + lib/, then reset
-    uv run deploy -- --no-reset  # copy without resetting
+    uv run deploy                     # copy src/ (recursively) + lib/, then reset
+    uv run deploy --no-reset          # copy without resetting
+    uv run deploy --tool all_red      # deploy examples/ref_test/all_red/main.py as /main.py
 
 The on-device layout mirrors the ``src/`` directory, so
 ``src/epdws/display.py`` is deployed as ``/epdws/display.py``, and
 ``examples/main.py`` is deployed as ``/main.py``.
+
+Device reference tests live in ``examples/ref_test/<name>/main.py``. Passing
+``--tool <name>`` deploys that test as ``/main.py`` instead of the default
+demo, so a single test can be pushed to the board on demand.
 """
 
 from __future__ import annotations
@@ -26,6 +31,27 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 LIB = ROOT / "lib"
 EXAMPLES = ROOT / "examples"
+REF_TEST = EXAMPLES / "ref_test"
+
+
+def available_tools() -> list[str]:
+    """Names of deployable reference tests, i.e. examples/ref_test/*/main.py."""
+    if not REF_TEST.is_dir():
+        return []
+    return sorted(p.parent.name for p in REF_TEST.glob("*/main.py"))
+
+
+def entrypoint(tool: str | None) -> Path:
+    """Resolve the local main.py to deploy as /main.py."""
+    if tool is None:
+        return EXAMPLES / "main.py"
+
+    entry = REF_TEST / tool / "main.py"
+    if not entry.is_file():
+        known = ", ".join(available_tools()) or "none"
+        msg = f"unknown tool {tool!r}; available: {known}"
+        raise ValueError(msg)
+    return entry
 
 
 def run(cmd: list[str]) -> None:
@@ -86,18 +112,20 @@ def deploy_source_tree() -> None:
         run(["mpremote", "fs", "cp", str(path), f":{device_path(path)}"])
 
 
-def deploy(reset: bool) -> None:
+def deploy(reset: bool, tool: str | None = None) -> None:
     if shutil.which("mpremote") is None:
         sys.exit(
             "mpremote not found on PATH. Run `uv sync` to install it, or `pip install mpremote`."
         )
 
+    # Resolve before touching the device, so a bad --tool fails fast.
+    entry = entrypoint(tool)
+
     safe_mkdir("/lib")
     deploy_source_tree()
 
-    example_main = EXAMPLES / "main.py"
-    if example_main.is_file():
-        run(["mpremote", "fs", "cp", str(example_main), ":/main.py"])
+    print(f"Deploying {entry.relative_to(ROOT)} as /main.py")
+    run(["mpremote", "fs", "cp", str(entry), ":/main.py"])
 
     if LIB.is_dir():
         run(["mpremote", "fs", "cp", "-r", str(LIB), ":/lib/"])
@@ -109,8 +137,30 @@ def deploy(reset: bool) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-reset", action="store_true", help="skip reset after deploy")
+    parser.add_argument(
+        "--tool",
+        metavar="NAME",
+        help=(
+            "deploy examples/ref_test/NAME/main.py as /main.py "
+            f"(available: {', '.join(available_tools()) or 'none'})"
+        ),
+    )
+    parser.add_argument(
+        "--list-tools",
+        action="store_true",
+        help="print the available reference tests and exit",
+    )
     args = parser.parse_args()
-    deploy(reset=not args.no_reset)
+
+    if args.list_tools:
+        for name in available_tools():
+            print(name)
+        return
+
+    try:
+        deploy(reset=not args.no_reset, tool=args.tool)
+    except ValueError as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":
