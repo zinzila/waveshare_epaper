@@ -29,6 +29,7 @@ dev = [
 [project.scripts]
 deploy = "tools.deploy:main"
 build-page = "tools.build_page:main"
+dump-frame = "tools.dump_frame:main"
 
 [tool.ruff]
 line-length = 100
