@@ -15,7 +15,13 @@ A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B
 │       ├── image.py    # PBM P4 parser & raw 1-bit image blitter
 │       └── led.py      # onboard activity LED helper
 ├── examples/
-│   └── main.py         # demo script (uploaded as /main.py on device)
+│   ├── main.py         # demo script (uploaded as /main.py on device)
+│   └── ref_test/       # device reference tests (deploy with --tool <name>)
+│       ├── all_black/  # solid black flood - transport baseline
+│       ├── all_red/    # solid red flood - red plane baseline
+│       └── stripes/    # three switching-density zones - SPI integrity
+├── poc/                # hardware PoCs: vendor driver controls + bisection scripts
+├── docs/               # debugging logs
 ├── web/                # interactive web page & panel simulator (React + Tailwind)
 ├── lib/                # third-party MicroPython modules (deployed to /lib/)
 ├── tests/              # host-side test suite for src/epdws/
@@ -25,9 +31,12 @@ A minimal, robust, and pure graphics library for the Waveshare Pico-ePaper-2.9-B
 │   ├── test_image.py
 │   ├── test_epd.py
 │   ├── test_display.py
-│   └── test_deploy.py
+│   ├── test_deploy.py
+│   └── test_build_page.py
 ├── tools/
 │   ├── deploy.py       # `uv run deploy` -> `mpremote fs cp` ...
+│   ├── dump_frame.py   # `uv run dump-frame` - render demo frame host-side
+│   ├── build_page.py   # `uv run build-page` - standalone simulator HTML
 │   └── mkimage.py      # image converter (PNG/JPEG -> 1-bit PBM P4 layers)
 ├── pyproject.toml
 ├── .python-version
@@ -43,7 +52,8 @@ The project is configured for [uv](https://docs.astral.sh/uv/) so the host machi
 ```bash
 uv sync --extra dev          # one-time: creates .venv with mpremote, ruff, mypy, pytest
 uv run deploy                # deploy src/ (recursively), examples/main.py, and lib/ to Pico
-uv run deploy -- --no-reset  # deploy without resetting board
+uv run deploy --no-reset     # deploy without resetting board (no `--` separator:
+                             # this uv version forwards it and argparse rejects it)
 uv run ruff check src tools tests examples
 uv run ruff format src tools tests examples
 uv run mypy src tools
@@ -95,7 +105,7 @@ What `deploy.py` does:
 
 To deploy without resetting:
 ```bash
-uv run deploy -- --no-reset
+uv run deploy --no-reset
 ```
 
 ### Option 2: Using `mpremote` directly
@@ -114,7 +124,7 @@ mpremote connect /dev/ttyACM0 reset
 1. Flash MicroPython firmware to the board (UF2 file from https://micropython.org/download/RPI_PICO/ or https://micropython.org/download/RPI_PICO_W/).
 2. Mount the Pico as a USB mass-storage drive.
 3. Copy `src/epdws` directory and `examples/main.py` (as `main.py`) to the root of that drive.
-4. Safely eject and reset the board; MicroPython runs `boot.py` then `main.py`.
+4. Safely eject and reset the board; MicroPython runs `main.py`.
 
 ---
 
@@ -158,7 +168,27 @@ uv run pytest
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
 
-All 33 unit tests pass on host CPython without requiring connected hardware.
+The suite runs on host CPython without requiring connected hardware. One test
+(`test_build_page.py::test_bundle_single_file`) additionally requires a built
+`dist/` (run `uv run build-page` first); everything else passes standalone.
+
+### Device Reference Tests
+
+`examples/ref_test/<name>/main.py` are minimal single-purpose scripts that
+flash the panel with one known pattern to verify the hardware end to end.
+Deploy one on demand (it overwrites `/main.py` and runs on boot):
+
+```bash
+uv run deploy --list-tools          # show available tests
+uv run deploy --tool all_black      # push as /main.py
+```
+
+Judge success only by the SETTLED panel state after BUSY releases - e-paper
+transits through garbage while sweeping. See
+`docs/debugging-log-epd-noise.md` and
+`.agents/references/RPi_Pico_W_epaper_display.md` for hardware errata
+(BUSY polarity, the GPIO8/DC SPI pin claim, RST polarity, boot vs soft-reset
+behaviour).
 
 ---
 
