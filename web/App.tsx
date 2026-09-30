@@ -16,6 +16,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { Color, Orientation, DrawCommand } from './types.ts';
+import { FONT_8X8 } from './font8x8.ts';
 import { DisplayCanvas } from './components/DisplayCanvas.tsx';
 import { CodeViewer } from './components/CodeViewer.tsx';
 import { PbmConverter } from './components/PbmConverter.tsx';
@@ -143,37 +144,14 @@ export default function App() {
       }
     };
 
-    // Simple 8x8 font rendering for text
+    // Pixel-perfect 8x8 font rendering matching MicroPython framebuf
     const drawChar = (char: string, ox: number, oy: number, color: Color, scale: number) => {
-      const code = char.charCodeAt(0);
+      const glyph = FONT_8X8[char] ?? FONT_8X8['?'] ?? [0, 0, 0, 0, 0, 0, 0, 0];
       for (let gy = 0; gy < 8; gy++) {
+        const row = glyph[gy] ?? 0;
         for (let gx = 0; gx < 8; gx++) {
-          let ink = false;
-          if (char === 'P' || char === 'p') {
-            if (gx === 0 || (gy === 0 && gx < 6) || (gy === 4 && gx < 6) || (gx === 6 && gy < 4)) ink = true;
-          } else if (char === 'i') {
-            if ((gx === 2 && gy > 1) || (gx === 2 && gy === 0)) ink = true;
-          } else if (char === 'c') {
-            if ((gx === 0 && gy > 1 && gy < 7) || (gy === 2 && gx < 6) || (gy === 7 && gx < 6)) ink = true;
-          } else if (char === 'o') {
-            if ((gx === 0 || gx === 5) && gy > 1 && gy < 7) ink = true;
-            if ((gy === 2 || gy === 7) && gx < 6) ink = true;
-          } else if (char === 'e' || char === 'E') {
-            if (gx === 0 || gy === 0 || gy === 3 || (char === 'E' && gy === 7)) ink = true;
-          } else if (char === '2') {
-            if (gy === 0 || (gx === 7 && gy < 4) || gy === 4 || (gx === 0 && gy > 4) || gy === 7) ink = true;
-          } else if (char === '.') {
-            if (gx === 3 && gy === 7) ink = true;
-          } else if (char === '9') {
-            if (gy === 0 || gy === 4 || gy === 7 || (gx === 0 && gy < 4) || gx === 7) ink = true;
-          } else if (char === 'B') {
-            if (gx === 0 || gy === 0 || gy === 3 || gy === 7 || (gx === 6 && gy !== 3)) ink = true;
-          } else {
-            // General glyph heuristic
-            if (gy === 0 || gx === 0 || ((code >> (gx % 7)) & 1 && gy === 4)) ink = true;
-          }
-
-          if (ink) {
+          const bit = (row >> (7 - gx)) & 1;
+          if (bit) {
             for (let sy = 0; sy < scale; sy++) {
               for (let sx = 0; sx < scale; sx++) {
                 setPixel(ox + gx * scale + sx, oy + gy * scale + sy, color);
@@ -234,17 +212,29 @@ export default function App() {
     let newCmds: DrawCommand[] = [];
 
     if (preset === 'main') {
-      newCmds = [
-        { id: '1', type: 'clear', color: 'WHITE', params: {}, description: 'd.clear()' },
-        { id: '2', type: 'text', color: 'BLACK', params: { s: 'Pico e-Paper', x: 4, y: 4, scale: 1 }, description: 'd.text("Pico e-Paper", 4, 4, BLACK)' },
-        { id: '3', type: 'text', color: 'RED', params: { s: '2.9 inch B', x: 4, y: 18, scale: 2 }, description: 'd.text("2.9 inch B", 4, 18, RED, scale=2)' },
-        { id: '4', type: 'line', color: 'BLACK', params: { x0: 0, y0: 38, x1: dims.w - 1, y1: 38 }, description: `d.line(0, 38, d.width - 1, 38, BLACK)` },
-        { id: '5', type: 'rect', color: 'BLACK', params: { x: 4, y: 46, w: 55, h: 30, fill: false }, description: 'd.rect(4, 46, 55, 30, BLACK)' },
-        { id: '6', type: 'rect', color: 'RED', params: { x: 65, y: 46, w: 55, h: 30, fill: true }, description: 'd.rect(65, 46, 55, 30, RED, fill=True)' },
-        { id: '7', type: 'circle', color: 'BLACK', params: { x: 155, y: 61, r: 15, fill: false }, description: 'd.circle(155, 61, 15, BLACK)' },
-        { id: '8', type: 'circle', color: 'RED', params: { x: 195, y: 61, r: 15, fill: true }, description: 'd.circle(195, 61, 15, RED, fill=True)' },
-        { id: '9', type: 'text', color: 'BLACK', params: { s: 'OK: GDEW029Z10', x: 4, y: 86, scale: 1 }, description: 'd.text("OK: GDEW029Z10", 4, 86, BLACK)' },
-      ];
+      if (orientation === 'PORTRAIT') {
+        newCmds = [
+          { id: '1', type: 'clear', color: 'WHITE', params: {}, description: 'd.clear()' },
+          { id: '2', type: 'text', color: 'BLACK', params: { s: 'Pico e-Paper', x: 4, y: 4, scale: 1 }, description: 'd.text("Pico e-Paper", 4, 4, BLACK)' },
+          { id: '3', type: 'text', color: 'RED', params: { s: '2.9" B', x: 4, y: 20, scale: 2 }, description: 'd.text("2.9\\" B", 4, 20, RED, scale=2)' },
+          { id: '4', type: 'line', color: 'BLACK', params: { x0: 0, y0: 40, x1: dims.w - 1, y1: 40 }, description: `d.line(0, 40, d.width - 1, 40, BLACK)` },
+          { id: '5', type: 'rect', color: 'BLACK', params: { x: 4, y: 48, w: 55, h: 30, fill: false }, description: 'd.rect(4, 48, 55, 30, BLACK)' },
+          { id: '6', type: 'rect', color: 'RED', params: { x: 65, y: 48, w: 55, h: 30, fill: true }, description: 'd.rect(65, 48, 55, 30, RED, fill=True)' },
+          { id: '7', type: 'circle', color: 'BLACK', params: { x: 32, y: 110, r: 18, fill: false }, description: 'd.circle(32, 110, 18, BLACK)' },
+          { id: '8', type: 'circle', color: 'RED', params: { x: 80, y: 110, r: 18, fill: true }, description: 'd.circle(80, 110, 18, RED, fill=True)' },
+        ];
+      } else {
+        newCmds = [
+          { id: '1', type: 'clear', color: 'WHITE', params: {}, description: 'd.clear()' },
+          { id: '2', type: 'text', color: 'BLACK', params: { s: 'Pico e-Paper', x: 4, y: 4, scale: 1 }, description: 'd.text("Pico e-Paper", 4, 4, BLACK)' },
+          { id: '3', type: 'text', color: 'RED', params: { s: '2.9 inch B', x: 4, y: 20, scale: 2 }, description: 'd.text("2.9 inch B", 4, 20, RED, scale=2)' },
+          { id: '4', type: 'line', color: 'BLACK', params: { x0: 0, y0: 40, x1: dims.w - 1, y1: 40 }, description: `d.line(0, 40, d.width - 1, 40, BLACK)` },
+          { id: '5', type: 'rect', color: 'BLACK', params: { x: 4, y: 48, w: 60, h: 30, fill: false }, description: 'd.rect(4, 48, 60, 30, BLACK)' },
+          { id: '6', type: 'rect', color: 'RED', params: { x: 70, y: 48, w: 60, h: 30, fill: true }, description: 'd.rect(70, 48, 60, 30, RED, fill=True)' },
+          { id: '7', type: 'circle', color: 'BLACK', params: { x: 160, y: 63, r: 15, fill: false }, description: 'd.circle(160, 63, 15, BLACK)' },
+          { id: '8', type: 'circle', color: 'RED', params: { x: 200, y: 63, r: 15, fill: true }, description: 'd.circle(200, 63, 15, RED, fill=True)' },
+        ];
+      }
     } else if (preset === 'sensor') {
       newCmds = [
         { id: '1', type: 'clear', color: 'WHITE', params: {}, description: 'd.clear()' },

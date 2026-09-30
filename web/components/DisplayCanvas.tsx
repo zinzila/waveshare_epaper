@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Play, RotateCcw, ZoomIn, ZoomOut, Check, RefreshCw, Layers } from 'lucide-react';
+import { ZoomIn, ZoomOut, RefreshCw, Smartphone, Monitor } from 'lucide-react';
 import { Color, Orientation } from '../types.ts';
 
 interface DisplayCanvasProps {
@@ -23,9 +23,18 @@ export const DisplayCanvas: React.FC<DisplayCanvasProps> = ({
   const [zoom, setZoom] = useState<number>(2);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const [refreshPhase, setRefreshPhase] = useState<number>(0);
+  // viewMode: 'logical' (canvas view) vs 'device' (physical handheld module as in user photo)
+  const [viewMode, setViewMode] = useState<'logical' | 'device'>('logical');
+  const [deviceRotated, setDeviceRotated] = useState<boolean>(false);
 
-  const width = orientation === 'LANDSCAPE' ? 296 : 128;
-  const height = orientation === 'LANDSCAPE' ? 128 : 296;
+  // Logical canvas dimensions
+  const logicalWidth = orientation === 'LANDSCAPE' ? 296 : 128;
+  const logicalHeight = orientation === 'LANDSCAPE' ? 128 : 296;
+
+  // Active rendering dimensions on the HTML canvas element
+  const isPhysicalHandheld = viewMode === 'device' && !deviceRotated;
+  const renderWidth = isPhysicalHandheld ? 128 : logicalWidth;
+  const renderHeight = isPhysicalHandheld ? 296 : logicalHeight;
 
   // Refresh visual animation
   useEffect(() => {
@@ -53,59 +62,88 @@ export const DisplayCanvas: React.FC<DisplayCanvasProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = renderWidth;
+    canvas.height = renderHeight;
 
     if (isRefreshing) {
-      // E-Ink refresh simulation phases
       if (refreshPhase === 1) {
         ctx.fillStyle = '#111827'; // Dark flash
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, renderWidth, renderHeight);
         return;
       } else if (refreshPhase === 2) {
         ctx.fillStyle = '#DC2626'; // Red flash
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, renderWidth, renderHeight);
         return;
       } else if (refreshPhase === 3) {
         ctx.fillStyle = '#F4F2EB'; // White flush
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, renderWidth, renderHeight);
         return;
       }
     }
 
     // Default authentic e-Ink paper background
     ctx.fillStyle = '#F4F2EB';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, renderWidth, renderHeight);
 
-    // Render ink layers
-    // The complementary rule:
-    // black has priority if black is true, red has priority if red is true
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const isBlack = pixels.black[y]?.[x] ?? false;
-        const isRed = pixels.red[y]?.[x] ?? false;
+    if (isPhysicalHandheld && orientation === 'LANDSCAPE') {
+      // Transpose landscape buffer (296x128) onto physical vertical panel (128x296)
+      // Matching physical glass scanning when held upright with USB at top:
+      // lx goes 0..295 top-to-bottom (py = lx)
+      // ly goes 0..127 right-to-left (px = 127 - ly)
+      for (let ly = 0; ly < 128; ly++) {
+        for (let lx = 0; lx < 296; lx++) {
+          const isBlack = pixels.black[ly]?.[lx] ?? false;
+          const isRed = pixels.red[ly]?.[lx] ?? false;
 
-        if (isRed) {
-          ctx.fillStyle = '#DC2626'; // e-Ink Red
-          ctx.fillRect(x, y, 1, 1);
-        } else if (isBlack) {
-          ctx.fillStyle = '#18181B'; // e-Ink Black
-          ctx.fillRect(x, y, 1, 1);
+          const px = 127 - ly;
+          const py = lx;
+
+          if (isRed) {
+            ctx.fillStyle = '#DC2626';
+            ctx.fillRect(px, py, 1, 1);
+          } else if (isBlack) {
+            ctx.fillStyle = '#18181B';
+            ctx.fillRect(px, py, 1, 1);
+          }
+        }
+      }
+    } else {
+      // Direct 1:1 pixel rendering for logical view (or native portrait)
+      for (let y = 0; y < renderHeight; y++) {
+        for (let x = 0; x < renderWidth; x++) {
+          const isBlack = pixels.black[y]?.[x] ?? false;
+          const isRed = pixels.red[y]?.[x] ?? false;
+
+          if (isRed) {
+            ctx.fillStyle = '#DC2626';
+            ctx.fillRect(x, y, 1, 1);
+          } else if (isBlack) {
+            ctx.fillStyle = '#18181B';
+            ctx.fillRect(x, y, 1, 1);
+          }
         }
       }
     }
-  }, [pixels, width, height, isRefreshing, refreshPhase]);
+  }, [pixels, renderWidth, renderHeight, isRefreshing, refreshPhase, isPhysicalHandheld, orientation]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = width / rect.width;
-    const scaleY = height / rect.height;
-    const x = Math.floor((e.clientX - rect.left) * scaleX);
-    const y = Math.floor((e.clientY - rect.top) * scaleY);
-    if (x >= 0 && x < width && y >= 0 && y < height) {
-      setHoverPos({ x, y });
+    const scaleX = renderWidth / rect.width;
+    const scaleY = renderHeight / rect.height;
+    const cx = Math.floor((e.clientX - rect.left) * scaleX);
+    const cy = Math.floor((e.clientY - rect.top) * scaleY);
+
+    if (cx >= 0 && cx < renderWidth && cy >= 0 && cy < renderHeight) {
+      if (isPhysicalHandheld && orientation === 'LANDSCAPE') {
+        // Map back to logical coordinates for hover inspector
+        const lx = cy;
+        const ly = 127 - cx;
+        setHoverPos({ x: lx, y: ly });
+      } else {
+        setHoverPos({ x: cx, y: cy });
+      }
     }
   };
 
@@ -130,7 +168,7 @@ export const DisplayCanvas: React.FC<DisplayCanvasProps> = ({
           <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
           <h2 className="text-base font-semibold text-zinc-100">Panel Simulator</h2>
           <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono">
-            {width} × {height} px
+            {renderWidth} × {renderHeight} px
           </span>
           <span className="text-xs px-2 py-0.5 rounded bg-red-950/60 border border-red-800/40 text-red-300 font-medium">
             Tri-Color (B/W/R)
@@ -138,6 +176,34 @@ export const DisplayCanvas: React.FC<DisplayCanvasProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* View Mode Toggle: Logical vs Physical Device */}
+          <div className="flex items-center bg-zinc-800 rounded-lg p-1 text-xs">
+            <button
+              onClick={() => setViewMode('logical')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
+                viewMode === 'logical'
+                  ? 'bg-zinc-700 text-zinc-100 shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Logical coordinate canvas as addressed by Python drawing commands"
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              <span>Logical Canvas</span>
+            </button>
+            <button
+              onClick={() => setViewMode('device')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
+                viewMode === 'device'
+                  ? 'bg-emerald-700 text-emerald-100 shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Physical handheld board showing native hardware scan & panel orientation"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Handheld Board (As on Device)</span>
+            </button>
+          </div>
+
           {/* Orientation Toggle */}
           <div className="flex items-center bg-zinc-800 rounded-lg p-1 text-xs">
             <button
@@ -149,7 +215,7 @@ export const DisplayCanvas: React.FC<DisplayCanvasProps> = ({
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Landscape (296×128)
+              Landscape
             </button>
             <button
               id="btn-orientation-portrait"
@@ -160,7 +226,7 @@ export const DisplayCanvas: React.FC<DisplayCanvasProps> = ({
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Portrait (128×296)
+              Portrait
             </button>
           </div>
 
@@ -208,44 +274,61 @@ export const DisplayCanvas: React.FC<DisplayCanvasProps> = ({
       {/* Hardware Panel Display Frame */}
       <div className="my-6 flex flex-col items-center justify-center">
         {/* Physical Waveshare Bezel Mockup */}
-        <div className="relative bg-zinc-800 p-4 pb-6 rounded-2xl shadow-2xl border border-zinc-700/60 max-w-full overflow-auto">
-          {/* Header silkscreen */}
-          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 mb-2 px-1">
-            <span>Waveshare 2.9inch e-Paper (B)</span>
-            <span>GDEW029Z10</span>
-          </div>
-
-          {/* e-Paper Screen Area */}
-          <div
-            className="border-2 border-zinc-600 bg-[#F4F2EB] shadow-inner overflow-hidden flex items-center justify-center relative select-none"
-            style={{
-              width: `${width * zoom}px`,
-              height: `${height * zoom}px`,
-            }}
-          >
-            <canvas
-              ref={canvasRef}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
-              className="image-rendering-pixelated cursor-crosshair w-full h-full"
-              style={{ imageRendering: 'pixelated' }}
-            />
-
-            {/* Refreshing Flash Overlay */}
-            {isRefreshing && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-zinc-900/30">
-                <div className="bg-zinc-950/80 backdrop-blur-xs text-zinc-100 text-xs font-mono px-3 py-1.5 rounded-md border border-zinc-700 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-                  <span>E-Ink Refresh Cycle (Waveform LUT)</span>
-                </div>
+        <div className="relative flex flex-col items-center">
+          {/* Top USB & Flex Cable Representation in Handheld Mode */}
+          {isPhysicalHandheld && (
+            <div className="flex flex-col items-center mb-1 select-none">
+              {/* Black USB Cable */}
+              <div className="w-3.5 h-6 bg-zinc-800 rounded-t border-t border-x border-zinc-600 shadow"></div>
+              {/* Orange FPC Flex with Green Tape Tab */}
+              <div className="relative w-14 h-4 bg-amber-600/90 border border-amber-500 rounded-xs flex items-center justify-center shadow-xs">
+                <div className="w-4 h-5 bg-emerald-700 border border-emerald-600 rounded-xs -mt-2"></div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Bottom silkscreen & pinout label */}
-          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 mt-2 px-1">
-            <span>SPI1 (GP8-13) • 3.3V</span>
-            <span>296×128 • 180s Safety Throttle</span>
+          {/* Physical Glass / Bezel Housing */}
+          <div className="relative bg-zinc-800/95 p-3.5 pb-5 rounded-2xl shadow-2xl border-2 border-zinc-700/80 max-w-full overflow-auto">
+            {/* Header silkscreen */}
+            <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 mb-2 px-1">
+              <span>Waveshare 2.9" e-Paper (B)</span>
+              <span>{isPhysicalHandheld ? 'Native Panel: 128×296' : 'GDEW029Z10'}</span>
+            </div>
+
+            {/* Glass panel with outer border matching hardware photo */}
+            <div className="p-1.5 rounded-lg bg-zinc-900/60 border border-zinc-600/50 shadow-inner">
+              <div
+                className="border border-zinc-500/80 bg-[#F4F2EB] shadow-inner overflow-hidden flex items-center justify-center relative select-none"
+                style={{
+                  width: `${renderWidth * zoom}px`,
+                  height: `${renderHeight * zoom}px`,
+                }}
+              >
+                <canvas
+                  ref={canvasRef}
+                  onMouseMove={handleMouseMove}
+                  onMouseLeave={handleMouseLeave}
+                  className="image-rendering-pixelated cursor-crosshair w-full h-full"
+                  style={{ imageRendering: 'pixelated' }}
+                />
+
+                {/* Refreshing Flash Overlay */}
+                {isRefreshing && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-zinc-900/30">
+                    <div className="bg-zinc-950/80 backdrop-blur-xs text-zinc-100 text-xs font-mono px-3 py-1.5 rounded-md border border-zinc-700 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                      <span>E-Ink Refresh Cycle (Waveform LUT)</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom silkscreen & pinout label */}
+            <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 mt-2 px-1">
+              <span>SPI1 (GP8-13) • 3.3V</span>
+              <span>{isPhysicalHandheld ? 'Hardware Scan: Top-to-Bottom' : '180s Safety Throttle'}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -270,7 +353,7 @@ export const DisplayCanvas: React.FC<DisplayCanvasProps> = ({
         <div className="flex items-center gap-4 font-mono text-xs">
           {hoverPos ? (
             <div className="text-zinc-300">
-              X: <span className="text-emerald-400">{hoverPos.x}</span> Y:{' '}
+              Logical X: <span className="text-emerald-400">{hoverPos.x}</span> Y:{' '}
               <span className="text-emerald-400">{hoverPos.y}</span> | Color:{' '}
               <span
                 className={

@@ -34,8 +34,13 @@ const TEST_CASES: TestCase[] = [
 
   // test_epd.py
   { module: 'test_epd.py', name: 'test_no_spi_traffic_during_init', specSection: '§2.2, §7.1', description: 'Constructor does not energize panel or send SPI traffic' },
+  { module: 'test_epd.py', name: 'test_rst_starts_deasserted', specSection: '§7.1', description: 'RST pin starts deasserted high during initialization' },
+  { module: 'test_epd.py', name: 'test_dc_pin_constructed_after_spi', specSection: 'Hardware Errata', description: 'DC pin constructed after SPI to avoid SPI(1) default pin clobber' },
   { module: 'test_epd.py', name: 'test_busy_active_low_and_releases', specSection: '§7.3', description: 'Active-low BUSY (0=busy, 1=idle) polling terminates cleanly' },
   { module: 'test_epd.py', name: 'test_busy_timeout_raises_panel_timeout', specSection: '§7.3', description: 'Stuck BUSY pin triggers PanelTimeout after deadline' },
+  { module: 'test_epd.py', name: 'test_config_params_use_one_cs_pulse_per_byte', specSection: 'Hardware Errata', description: 'Multi-byte config parameters pulse CS per byte for register latching' },
+  { module: 'test_epd.py', name: 'test_command_without_data_uses_single_cs_pulse', specSection: '§7.1', description: 'Command without payload bytes triggers a single CS pulse' },
+  { module: 'test_epd.py', name: 'test_plane_upload_stays_in_one_cs_pulse', specSection: 'Hardware Errata', description: 'Framebuffer plane byte uploads stay within a single unbroken CS pulse' },
   { module: 'test_epd.py', name: 'test_upload_and_refresh_sequence', specSection: '§7.1', description: 'Exact register sequence: 0x04, 0x00, 0x61, 0x50, 0x10, 0x13, 0x12, 0x02, 0x07' },
 
   // test_display.py
@@ -64,7 +69,7 @@ export const TestRunnerView: React.FC = () => {
         <div>
           <h2 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Host Unit Test Suite (34 / 34 Passing)</span>
+            <span>Host Unit Test Suite (39 / 39 Passing)</span>
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">
             100% automated test coverage running against pure-Python <code className="text-emerald-400 font-mono">framebuf</code> and <code className="text-emerald-400 font-mono">machine</code> stubs
@@ -74,7 +79,7 @@ export const TestRunnerView: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950/80 border border-emerald-700/60 text-emerald-300">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Ran 35 tests in 0.399s — ALL PASSING</span>
+            <span>Ran 39 tests in 0.395s — ALL PASSING</span>
           </span>
         </div>
       </div>
